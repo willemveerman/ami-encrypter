@@ -69,7 +69,7 @@ class Encrypter:
         :return: boto3.client.image
         """
 
-        operation = "GET_LATEST_IMAGE:"
+        operation = "GET_LATEST_IMAGE"
         filter_message = "'{0}' filter with value '{1}'".format(ami_filter[0], ami_filter[1])
 
         try:
@@ -85,18 +85,17 @@ class Encrypter:
         except ClientError as e:
             if e.response['Error']['Code'] == 'InvalidParameterValue':
                 self.unprocessed.append(ami_filter)
-            raise Exception("{0} failed {1} due to API error: {2}"
-                            .format(operation, filter_message, e.response['Error']['Message']))
+            raise Exception(operation+": failed {0} due to API error: {1}"
+                            .format(filter_message, e.response['Error']['Message']))
 
         if len(image_list['Images']) == 0:
             self.unprocessed.append(ami_filter)
-            raise Exception("{0} zero images returned by {1}"
-                            .format(operation, filter_message))
+            raise Exception(operation+": zero images returned by {0}"
+                            .format(filter_message))
 
         if len(image_list['Images']) == 1:
-            logging.info("{0} one image returned by {1}: {2} - {3} "
-                         .format(operation,
-                                 filter_message,
+            logging.info(operation+": one image returned by {0}: {1} - {2} "
+                         .format(filter_message,
                                  image_list['Images'][0]['Name'],
                                  image_list['Images'][0]['ImageId']))
             return image_list['Images'][0]
@@ -108,9 +107,8 @@ class Encrypter:
             if parsed_date > latest_image[1]:
                 latest_image = (image, parsed_date, image['CreationDate'])
 
-        logging.info("{0} {1} images returned by {2}, latest is {3} - {4} - {5}"
-                     .format(operation,
-                             str(len(image_list['Images'])),
+        logging.info(operation+": {0} images returned by {1}, latest is {2} - {3} - {4}"
+                     .format(str(len(image_list['Images'])),
                              filter_message, latest_image[0]['Name'],
                              latest_image[0]['ImageId'],
                              latest_image[2]))
@@ -130,30 +128,32 @@ class Encrypter:
 
         operation = "COPY_SNAPSHOT"
 
-        logging.info("{0}: attempting to produce encrypted copy of {1} - {2}"
-                     .format(operation, block['Ebs']['SnapshotId'], image['Name']))
+        logging.info(operation+": attempting to produce encrypted copy of {0} - {1}"
+                     .format(block['Ebs']['SnapshotId'], image['Name']))
 
         try:
             encrypted_copy = client.copy_snapshot(SourceSnapshotId=block['Ebs']['SnapshotId'],
-                                                                 Encrypted=True,
-                                                                 SourceRegion=self.region)
+                                                  Encrypted=True,
+                                                  SourceRegion=self.region)
 
             block['Ebs']['EncryptedCopy'] = encrypted_copy
         except ClientError as e:
             if e.response['Error']['Code'] == 'ResourceLimitExceeded':
                 sleep = random.randint(14, 31)
-                logging.info("{0}: API limit exceeded: sleeping {1}s then retrying {2} - {3}"
-                      .format(operation, sleep, block['Ebs']['SnapshotId'], image['Name']))
+                logging.info(operation+": API limit exceeded: sleeping {0}s then retrying {1} - {2}"
+                             .format(sleep, block['Ebs']['SnapshotId'], image['Name']))
                 time.sleep(sleep)
                 self.copy_single_snapshot(block, image, client)
             else:
-                raise Exception("{0}: aborting copy of {1} from {2} due to API error: {3}"
-                                .format(operation, block['Ebs']['SnapshotId'], image['Name'], e.response['Error']['Message']))
+                raise Exception(operation+": aborting copy of {0} from {1} due to API error: {2}"
+                                .format(block['Ebs']['SnapshotId'], image['Name'], e.response['Error']['Message']))
 
 
     def build_encrypted_image_object(self, image, client, ec2):
         """
-        Loops over an AMI's EBS volume mappings and attempts to produce an encrypted copy of each snapshot.
+        Loops over an AMI's EBS volume mappings and attempts to produce
+        an encrypted copy of each volume's underlying snapshot.
+
         If all snapshots are successfully copied, each volume's snapshot ID is replaced with that of its encrypted copy.
 
         :param image: boto3.ec2.image
@@ -191,8 +191,8 @@ class Encrypter:
 
         new_image_name = image['Name'].split('_')[0] + '_' + self.timestamp
 
-        logging.info("{0}: attempting to register new AMI with name {1}, produced from AMI {2}"
-                     .format(operation, image['Name'], new_image_name))
+        logging.info(operation+": attempting to register new AMI with name {0}, produced from AMI {1}"
+                     .format(image['Name'], new_image_name))
 
         try:
             client.register_image(Name=new_image_name,
@@ -204,11 +204,11 @@ class Encrypter:
             self.processed.append(new_image_name)
         except ClientError as e:
             if e.response['Error']['Code'] == 'InvalidAMIName.Duplicate':
-                logging.info("{0}: AMI with name '{1}' already registered - skipping"
-                             .format(operation, new_image_name))
+                logging.info(operation+": AMI with name '{0}' already registered - skipping"
+                             .format(new_image_name))
             else:
-                raise Exception("{0}: aborting registration of {1} from {2} due to API error: {3}"
-                                .format(operation, new_image_name, image['Name'], e.response['Error']['Message']))
+                raise Exception(operation+": aborting registration of {1} from {2} due to API error: {3}"
+                                .format(new_image_name, image['Name'], e.response['Error']['Message']))
 
     def encrypt_ami(self, ami_filter):
         """
@@ -226,15 +226,16 @@ class Encrypter:
             sess = b.Session(profile_name=self.profile, region_name=self.region)
         else:
             sess = b.Session()
+            self.region = sess.region_name
 
         ec2 = sess.resource('ec2')
         client = sess.client('ec2')
 
         latest_image = self.get_latest_image(ami_filter, client)
 
-        old_image_encrypted_snapshots = self.build_encrypted_image_object(latest_image, client, ec2)
+        encrypted_image_object = self.build_encrypted_image_object(latest_image, client, ec2)
 
-        self.register_image(old_image_encrypted_snapshots, client)
+        self.register_image(encrypted_image_object, client)
 
 
     def parallel_process(self, concurrency, filepath):
