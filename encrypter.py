@@ -6,19 +6,52 @@ import time
 import random
 from multiprocessing.dummy import Pool as ThreadPool
 import logging
+import argparse
+
+parser = argparse.ArgumentParser(description=
+                                 """
+                                 Produces encrypted copies of AMIs.
+                            
+                                 Uses a JSON file as input via the -s --source flag. 
+                                 
+                                 The JSON defines a search filter to be used to retrieve source AMIs.
+                                 
+                                 JSON must be a dict with single key of type string, value must be a list of strings.
+                                 
+                                 The dict key and each list string are used as Name:Values input to Filters parameter
+                                 of the AWS describe_images API.
+                                 
+                                 For example, this dict: { 'name' : ['alpha', 'beta']} would query the API twice - 
+                                 
+                                 it would search for one AMI with a 'name' value of 'alpha' and another with name 'beta'
+                                 
+                                 Learn the syntax accepted by the Filters parameter here: 
+                                 
+                                 https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-images.html
+                                 
+                                 For each API call, if more than one AMI is returned the script will select the most recent.   
+                                 """,
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+parser.add_argument('-p', '--profile',
+                    help='AWS credentials profile',
+                    required=True)
+
+parser.add_argument('-r', '--region',
+                    help='AWS region',
+                    default='eu-west-2')
+
+parser.add_argument('-v', '--verbose',
+                    action="store_true",
+                    help='display verbose output for debugging')
+
+parser.add_argument('-i', '--info',
+                    help='return qualifying AMIs but do not delete',
+                    action="store_true")
+
+
 
 class Encrypter:
-    """
-    Produces encrypted copies of AMIs.
-
-    Takes a source AMI
-    - produces encrypted copies of its snapshots
-    - replaces the source AMI object's snapshot ID values with those of the encrypted copies
-    - registers a new AMI using the encrypted snapshots and the block device mapping spec of the local
-
-    Uses a JSON file as input, which defines a search filter to be used to retrieve source AMIs.
-    The JSON must be composed of a dict of lists with only one key, which itself must be of type string.
-    """
 
     def __init__(self, profile="", region=""):
         self.profile = profile
