@@ -14,10 +14,10 @@ class Encrypter:
     Takes a source AMI
     - produces encrypted copies of its snapshots
     - replaces the source AMI object's snapshot ID values with those of the encrypted copies
-    - registers a new AMI using the encrypted snapshots and the block device mapping spec of the source
+    - registers a new AMI using the encrypted snapshots and the block device mapping spec of the local
 
     Uses a JSON file as input, which defines a search filter to be used to retrieve source AMIs.
-    The JSON must be composed of a dict of lists with only key, which itself must be a string.
+    The JSON must be composed of a dict of lists with only one key, which itself must be of type string.
     """
 
     def __init__(self, profile="", region=""):
@@ -29,11 +29,11 @@ class Encrypter:
 
     def parse_json_file(self, filepath):
         """
-        Parses JSON input file, confirming it meets criteria:
+        Parses JSON input file, confirms it meets criteria:
         - dict with single key of type string with value of type list (e.g. {"key": ['one','two']})
         - list composed only of strings
 
-        returns list of Name:Values tuples (dict_key, list[n])
+        returns list of Name:Value tuples [(dict_key, list[n]), (dict_key, list[n+1])]
 
         :param filepath: str
         :return: list of (str, str)
@@ -62,7 +62,7 @@ class Encrypter:
     def get_latest_image(self, ami_filter, client):
         """
         Uses ami_filter[0], ami_filter[1] as Name:Values input to Filters parameter of AWS describe_images API
-        Returns most-recent image if more than one returned from API
+        Returns most recent image if more than one returned from API
 
         :param ami_filter: (str, str)
         :param client: boto3.ec2.client
@@ -207,7 +207,7 @@ class Encrypter:
                 logging.info(operation+": AMI with name '{0}' already registered - skipping"
                              .format(new_image_name))
             else:
-                raise Exception(operation+": aborting registration of {1} from {2} due to API error: {3}"
+                raise Exception(operation+": aborting registration of {0} from {1} due to API error: {2}"
                                 .format(new_image_name, image['Name'], e.response['Error']['Message']))
 
     def encrypt_ami(self, ami_filter):
