@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(description=
                                  """
                                  Produces encrypted copies of AMIs, utilises parallelism in order to increase speed.
                             
-                                 Takes a JSON file as input via the -s --source flag. 
+                                 Requires a JSON input file.
                                  
                                  The JSON defines a search filter used to retrieve source AMIs.
                                  
@@ -44,9 +44,8 @@ parser = argparse.ArgumentParser(description=
                                  """,
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument('-s', '--source',
-                    help='path to JSON input',
-                    required=True)
+parser.add_argument('source',
+                    help='path to JSON input')
 
 parser.add_argument('-p', '--profile',
                     help='AWS credentials profile',
