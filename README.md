@@ -38,7 +38,7 @@ If credentials are not passed explicitly, the script will follow boto3's behavio
 
 Calling the program with the `-h` flag will display help, as below.
 
-```shell
+```
 
 usage: encrypter.py [-h] [-p PROFILE] [-r REGION] [-s] [-c CONCURRENCY] [-v]
                     [-i]
