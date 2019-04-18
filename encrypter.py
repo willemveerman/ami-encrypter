@@ -31,6 +31,10 @@ parser = argparse.ArgumentParser(description=
                                  For each describe_images API call, if more than one AMI is returned 
                                  the script will select the most recent.
                                  
+                                 If the filters in the JSON file return no AMIs the script will declare this but
+                                 it will not raise an error. You can force the script to raise an error if any filters
+                                 return no AMIs by using the -s --strict flag.
+                                 
                                  In order to increase speed, the script can perform multiple encryptions in parallel.
                                  
                                  The degree of parallelism can be determined by the -c --concurrency flag.
@@ -54,6 +58,10 @@ parser.add_argument('-p', '--profile',
 parser.add_argument('-r', '--region',
                     help='AWS region',
                     required=False)
+
+parser.add_argument('-s', '--strict',
+                    action="store_true",
+                    help='raise error if any input filter returns no results')
 
 parser.add_argument('-c', '--concurrency',
                     help='number of concurrent encryption operations',
@@ -154,6 +162,11 @@ class Encrypter:
                             .format(filter_message, e.response['Error']['Message']))
 
         if len(image_list['Images']) == 0:
+
+            if args.strict:
+                raise Exception(operation+": zero images returned by {0}"
+                                .format(filter_message))
+
             self.unprocessed.append(ami_filter)
             logging.info(operation+": zero images returned by {0}"
                          .format(filter_message))
@@ -322,7 +335,7 @@ class Encrypter:
 
     def log_results(self):
         """
-        Prints results to console.
+        Logs results to console.
 
         :return:
         """
