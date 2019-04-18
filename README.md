@@ -20,7 +20,7 @@ pip3 install --user boto3
 
 ami-encrypter can be used as a command-line program. 
 
-It has one required argument: the path to an input file. This parameter is the only positional argument that it accepts.
+It has one mandatory argument: the path to an input file. This parameter is the only positional argument that it accepts.
 
 The most minimal usage example is as follows:
 
@@ -32,9 +32,9 @@ An example json input file is included in this repository.
 
 Other parameters are optional and called using flags.
 
-Credentials can be passed to the script usage the `--profile` and `--region` flags. Note that if passing parameters using these flags, both profile and region must be specified.
+Credentials can be passed to the script usage the `--profile` and `--region` flags. Note that if passing parameters using these flags, both must be populated.
 
-If credentials are not passed explicitly, the script will follow boto3's behaviour for authentication, which is detailed [here.](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html)
+If credentials are not passed explicitly, the script will follow [boto3's behaviour for authentication.](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html)
 
 Calling the program with the `-h` flag will display help, as below.
 
