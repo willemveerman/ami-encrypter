@@ -158,8 +158,12 @@ class Encrypter:
         except ClientError as e:
             if e.response['Error']['Code'] == 'InvalidParameterValue':
                 self.unprocessed.append(ami_filter)
-            raise Exception(operation+": failed {0} due to API error: {1}"
-                            .format(filter_message, e.response['Error']['Message']))
+                logging.info(operation+": failed {0} due to API error: {1}"
+                             .format(filter_message, e.response['Error']['Message']))
+                return
+            else:
+                raise Exception(operation+": failed {0} due to API error: {1}"
+                                .format(filter_message, e.response['Error']['Message']))
 
         if len(image_list['Images']) == 0:
 
