@@ -10,45 +10,63 @@ import argparse
 
 parser = argparse.ArgumentParser(description=
                                  """
-                                 Produces encrypted copies of AMIs.
+                                 Produces encrypted copies of AMIs, utilises parallelism in order to increase speed.
                             
-                                 Uses a JSON file as input via the -s --source flag. 
+                                 Takes a JSON file as input via the -s --source flag. 
                                  
-                                 The JSON defines a search filter to be used to retrieve source AMIs.
+                                 The JSON defines a search filter used to retrieve source AMIs.
                                  
-                                 JSON must be a dict with single key of type string, value must be a list of strings.
+                                 The JSON must be a dict with single key of type string, with value list of strings.
                                  
                                  The dict key and each list string are used as Name:Values input to Filters parameter
                                  of the AWS describe_images API.
                                  
-                                 For example, this dict: { 'name' : ['alpha', 'beta']} would query the API twice - 
+                                 For example, this dict: { 'name' : ['alpha', 'beta']} would query the API twice: 
+                                 once for an AMI with a 'name' value of 'alpha' and once with name 'beta'.
                                  
-                                 it would search for one AMI with a 'name' value of 'alpha' and another with name 'beta'
-                                 
-                                 Learn the syntax accepted by the Filters parameter here: 
+                                 The syntax accepted by the Filters parameter can be viewed here: 
                                  
                                  https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-images.html
                                  
-                                 For each API call, if more than one AMI is returned the script will select the most recent.   
+                                 For each API call, if more than one AMI is returned 
+                                 the script will select the most recent.
+                                 
+                                 In order to increase speed, the script can perform multiple encryptions in parallel.
+                                 
+                                 The degree of parallelism can be determined by the -c --concurrency flag.
+                                 
+                                 There is a limit to the number of concurrent CopySnaphot operations 
+                                 that the AWS API will permit.
+                                 
+                                 If the script is denied initiating a CopySnapshot operation, it will briefly sleep
+                                 and then try again; you can increase the encryption rate by asking AWS to raise
+                                 the concurrent CopySnapshot limit for your account.
                                  """,
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+parser.add_argument('-s', '--source',
+                    help='path to JSON input',
+                    required=True)
+
 parser.add_argument('-p', '--profile',
                     help='AWS credentials profile',
-                    required=True)
+                    required=False)
 
 parser.add_argument('-r', '--region',
                     help='AWS region',
-                    default='eu-west-2')
+                    required=False)
+
+parser.add_argument('-c', '--concurrency',
+                    help='number of concurrent encryption operations',
+                    required=False)
 
 parser.add_argument('-v', '--verbose',
                     action="store_true",
                     help='display verbose output for debugging')
 
 parser.add_argument('-i', '--info',
-                    help='return qualifying AMIs but do not delete',
+                    help='return qualifying AMIs but do not encrypt',
                     action="store_true")
-
 
 
 class Encrypter:
@@ -85,12 +103,27 @@ class Encrypter:
                     if all(isinstance(item, str) for item in ami_json[key_name]):
                         unique_ami_filters = [(key_name, ami_name) for ami_name in ami_json[key_name]]
                         logging.info("Found unique filters: ")
-                        [logging.info(ami_filter[1]) for ami_filter in unique_ami_filters]
+                        [logging.info(key_name+":"+ami_filter[1]) for ami_filter in unique_ami_filters]
                         return unique_ami_filters
                     raise ValueError("'%s' list contains non-string values" % next(iter(ami_json)))
                 raise ValueError("'{0}' value wrong datatype: {1} - should be array".format(key_name, str(type(ami_json[key_name]))))
             raise ValueError("JSON must be dict with single key, found %s keys" % len(ami_json))
         raise ValueError("JSON root wrong datatype: %s - should be dict" % str(type(ami_json)))
+
+    def make_session(self):
+        """
+        Creates a boto3 Session, either with user-supplied credentials or those of the environment
+
+        :return: boto3.resource.ec2, boto3.client.ec2
+        """
+
+        if self.profile and self.region:
+            sess = b.Session(profile_name=self.profile, region_name=self.region)
+        else:
+            sess = b.Session()
+            self.region = sess.region_name
+
+        return sess.resource('ec2'), sess.client('ec2')
 
     def get_latest_image(self, ami_filter, client):
         """
@@ -142,7 +175,8 @@ class Encrypter:
 
         logging.info(operation+": {0} images returned by {1}, latest is {2} - {3} - {4}"
                      .format(str(len(image_list['Images'])),
-                             filter_message, latest_image[0]['Name'],
+                             filter_message,
+                             latest_image[0]['Name'],
                              latest_image[0]['ImageId'],
                              latest_image[2]))
 
@@ -245,7 +279,6 @@ class Encrypter:
 
     def encrypt_ami(self, ami_filter):
         """
-        Creates a boto3 Session, either with user-supplied profile and region values or those of the environment
         Finds the latest AMI that corresponds to ami_filter
         Copies and encrypts AMI's snapshots and then registers a new AMI using the encrypted snapshots
         The original AMI's block device mappings are used to create those of the new,
@@ -255,14 +288,7 @@ class Encrypter:
         :return:
         """
 
-        if self.profile and self.region:
-            sess = b.Session(profile_name=self.profile, region_name=self.region)
-        else:
-            sess = b.Session()
-            self.region = sess.region_name
-
-        ec2 = sess.resource('ec2')
-        client = sess.client('ec2')
+        ec2, client = self.make_session()
 
         latest_image = self.get_latest_image(ami_filter, client)
 
@@ -300,8 +326,33 @@ class Encrypter:
             logging.info("\n{0} filters returned no results:\n".format(str(len(self.unprocessed))))
             [logging.info("{0} - {1}".format(ami_filter[0], ami_filter[1])) for ami_filter in self.unprocessed]
 
-# logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
-#
-# encrypter = Encrypter(profile='awscmg-dev',region='eu-west-2')
-#
-# encrypter.parallel_process(1,'source_amis.json')
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
+
+encrypter = Encrypter()
+
+concurrency = 5
+
+args = parser.parse_args()
+
+if (args.profile and not args.region) or (args.region and not args.profile):
+    parser.error('specifying --profile requires specifying --region, and vice versa')
+
+if args.profile:
+    encrypter.profile = args.profile
+    encrypter.region = args.region
+
+if args.verbose:
+    logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
+
+if args.concurrency:
+    concurrency = args.concurrency
+
+if args.info:
+    filter_list = encrypter.parse_json_file(args.source)
+    ec2, client = encrypter.make_session()
+    for f in filter_list:
+        encrypter.get_latest_image(f, client)
+    exit(0)
+
+encrypter.parallel_process(concurrency, args.source)

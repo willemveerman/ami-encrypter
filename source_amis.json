@@ -1,14 +1,5 @@
 {
-  "name": ["sit-LDAPCleanProcessor_*",
-           "sit-BaNCSAcctCleanProcessor_*",
-           "sit-BaNCSCustCleanProcessor_*",
-           "sit-DCTMCleanProcessor_*",
-           "sit-SASMICleanProcessor_*",
-            "sit-broker-01_*",
-            "sit-broker-02_*",
-            "sit-broker-03_*",
-            "sit-zookeeper-01_*",
-            "sit-zookeeper-02_*",
-            "sit-zookeeper-03_*",
-            "sit-restproxy-01_*"]
+  "name": ["sit-server-A_*",
+           "sit-server-B_*",
+           "sit-server-C_*"]
 }
