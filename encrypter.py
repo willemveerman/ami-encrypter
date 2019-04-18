@@ -65,6 +65,7 @@ parser.add_argument('-s', '--strict',
 
 parser.add_argument('-c', '--concurrency',
                     help='number of concurrent encryption operations',
+                    default=5,
                     required=False)
 
 parser.add_argument('-v', '--verbose',
@@ -157,19 +158,28 @@ class Encrypter:
             )
         except ClientError as e:
             if e.response['Error']['Code'] == 'InvalidParameterValue':
+                message = operation+": failed {0} due to API error: {1}".format(filter_message,
+                                                                                e.response['Error']['Message'])
+                if args.strict:
+                    raise Exception(message)
+
                 self.unprocessed.append(ami_filter)
-            raise Exception(operation+": failed {0} due to API error: {1}"
-                            .format(filter_message, e.response['Error']['Message']))
+                logging.info(message)
+
+                return
+
+            else:
+                raise e
 
         if len(image_list['Images']) == 0:
 
+            message = operation+": zero images returned by {0}".format(filter_message)
+
             if args.strict:
-                raise Exception(operation+": zero images returned by {0}"
-                                .format(filter_message))
+                raise Exception(message)
 
             self.unprocessed.append(ami_filter)
-            logging.info(operation+": zero images returned by {0}"
-                         .format(filter_message))
+            logging.info(message)
 
             return
 
@@ -244,10 +254,7 @@ class Encrypter:
         """
 
         for block in image['BlockDeviceMappings']:
-            try:
-                self.copy_single_snapshot(block, image, client)
-            except Exception as e:
-                raise e
+            self.copy_single_snapshot(block, image, client)
 
         for block in image['BlockDeviceMappings']:
             block['Ebs']['SnapshotId'] = block['Ebs']['EncryptedCopy']['SnapshotId']
@@ -354,12 +361,10 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 
 encrypter = Encrypter()
 
-concurrency = 5
-
 args = parser.parse_args()
 
 if (args.profile and not args.region) or (args.region and not args.profile):
-    parser.error('specifying --profile requires specifying --region, and vice versa')
+    parser.error('specifying --profile necessitates specifying --region, and vice versa')
 
 if args.profile:
     encrypter.profile = args.profile
@@ -367,9 +372,6 @@ if args.profile:
 
 if args.verbose:
     logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
-
-if args.concurrency:
-    concurrency = args.concurrency
 
 if args.info:
     filter_list = encrypter.parse_json_file(args.source)
@@ -379,4 +381,4 @@ if args.info:
     encrypter.log_results()
     exit(0)
 
-encrypter.parallel_process(concurrency, args.source)
+encrypter.parallel_process(args.concurrency, args.source)
