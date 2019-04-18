@@ -156,8 +156,10 @@ class Encrypter:
 
         if len(image_list['Images']) == 0:
             self.unprocessed.append(ami_filter)
-            raise Exception(operation+": zero images returned by {0}"
-                            .format(filter_message))
+            logging.info(operation+": zero images returned by {0}"
+                         .format(filter_message))
+
+            return
 
         if len(image_list['Images']) == 1:
             logging.info(operation+": one image returned by {0}: {1} - {2} "
@@ -317,7 +319,16 @@ class Encrypter:
 
         pool.map(self.encrypt_ami, ami_filter_list)
 
-        logging.info("\nProcessing complete.\n")
+        self.log_results()
+
+    def log_results(self):
+        """
+        Prints results to console.
+
+        :return:
+        """
+
+        logging.info("Processing complete.\n")
 
         if self.processed:
             logging.info("{0} encrypted AMIs created:\n".format(len(self.processed)))
@@ -353,6 +364,7 @@ if args.info:
     ec2, client = encrypter.make_session()
     for f in filter_list:
         encrypter.get_latest_image(f, client)
+    encrypter.log_results()
     exit(0)
 
 encrypter.parallel_process(concurrency, args.source)
