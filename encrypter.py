@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser(description=
                                  
                                  https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-images.html
                                  
-                                 For each API call, if more than one AMI is returned 
+                                 For each describe_images API call, if more than one AMI is returned 
                                  the script will select the most recent.
                                  
                                  In order to increase speed, the script can perform multiple encryptions in parallel.
