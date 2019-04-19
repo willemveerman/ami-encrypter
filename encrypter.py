@@ -111,7 +111,7 @@ class Encrypter:
                     if all(isinstance(item, str) for item in ami_json[key_name]):
                         unique_ami_filters = [(key_name, ami_name) for ami_name in ami_json[key_name]]
                         logging.info("Found unique filters: ")
-                        [logging.info(key_name+":"+ami_filter[1]) for ami_filter in unique_ami_filters]
+                        [logging.info(ami_filter[0]+":"+ami_filter[1]) for ami_filter in unique_ami_filters]
                         return unique_ami_filters
                     raise ValueError("'%s' list contains non-string values" % next(iter(ami_json)))
                 raise ValueError("'{0}' value wrong datatype: {1} - should be array".format(key_name, str(type(ami_json[key_name]))))
