@@ -357,28 +357,29 @@ class Encrypter:
             [logging.info("{0} - {1}".format(ami_filter[0], ami_filter[1])) for ami_filter in self.unprocessed]
 
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 
-encrypter = Encrypter()
+    encrypter = Encrypter()
 
-args = parser.parse_args()
+    args = parser.parse_args()
 
-if (args.profile and not args.region) or (args.region and not args.profile):
-    parser.error('specifying --profile necessitates specifying --region, and vice versa')
+    if (args.profile and not args.region) or (args.region and not args.profile):
+        parser.error('specifying --profile necessitates specifying --region, and vice versa')
 
-if args.profile:
-    encrypter.profile = args.profile
-    encrypter.region = args.region
+    if args.profile:
+        encrypter.profile = args.profile
+        encrypter.region = args.region
 
-if args.verbose:
-    logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
 
-if args.info:
-    filter_list = encrypter.parse_json_file(args.source)
-    ec2, client = encrypter.make_session()
-    for f in filter_list:
-        encrypter.get_latest_image(f, client)
-    encrypter.log_results()
-    exit(0)
+    if args.info:
+        filter_list = encrypter.parse_json_file(args.source)
+        ec2, client = encrypter.make_session()
+        for f in filter_list:
+            encrypter.get_latest_image(f, client)
+        encrypter.log_results()
+        exit(0)
 
-encrypter.parallel_process(args.concurrency, args.source)
+    encrypter.parallel_process(args.concurrency, args.source)
