@@ -32,7 +32,7 @@ An example json input file is included in this repository.
 
 Other parameters are optional and called using flags.
 
-Credentials can be passed to the script usage the `--profile` and `--region` flags. Note that if passing parameters using these flags, both must be populated.
+Credentials can be passed to the script using the `--profile` and `--region` flags. Note that if passing parameters using these flags, both must be populated.
 
 If credentials are not passed explicitly, the script will follow [boto3's behaviour for authentication.](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html)
 
@@ -46,8 +46,8 @@ usage: encrypter.py [-h] [-p PROFILE] [-r REGION] [-s] [-c CONCURRENCY] [-v]
 Produces encrypted copies of AMIs, utilises parallelism in order to increase
 speed. Requires a JSON input file. The JSON defines a search filter used to
 retrieve source AMIs. The JSON must be a dict with single key of type string,
-with value list of strings. The dict key and each list string are used as
-Name:Values input to Filters parameter of the AWS describe_images API. For
+with value list of strings. The dict key and each string in the list are used as
+Name:Values input to the Filters parameter of the AWS describe_images API. For
 example, this dict: { 'name' : ['alpha', 'beta']} would query the API twice:
 once for an AMI with a 'name' value of 'alpha' and once with name 'beta'. The
 syntax accepted by the Filters parameter can be viewed here:
